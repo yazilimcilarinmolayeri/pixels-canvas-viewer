@@ -2,6 +2,24 @@
 <html lang="en">
     <head>
         <script>
+/* --- Cookies --- */
+
+const COOKIE_EXPIRE = "Sat, 03 Jul 2021 23:39:16 GMT";
+
+function getToken() {
+    const pattern = new RegExp(`^ *token *= *(.*)`);
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+        const match = cookie.match(pattern);
+        if (match) return match[1];
+    }
+    return undefined;
+}
+
+function setToken(token) {
+    document.cookie = `token=${token};expires=${COOKIE_EXPIRE};SameSite=Strict`;
+}
+
 /* --- API Wrapper --- */
 
 const API_URL = "https://pixels.pythondiscord.com/";
@@ -87,8 +105,17 @@ function drawCanvas(canvasData) {
 
 async function main() {
     const token = document.getElementById("token").value;
+    setToken(token);
     const canvas = await getCanvas(token);
     drawCanvas(canvas);
+}
+
+window.onload = () => {
+    const tokenInput = document.getElementById("token");
+    const token = getToken();
+    if (token) {
+        tokenInput.value = token;
+    }
 }
         </script>
         <style>
@@ -157,7 +184,7 @@ body {
     <body>
         <h1 class="title">Interactive Canvas Viewer</h1>
         <input
-            type="text"
+            type="password"
             id="token"
             class="input"
             placeholder="Token"/>
