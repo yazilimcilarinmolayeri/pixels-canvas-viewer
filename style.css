@@ -1,7 +1,11 @@
 body {
   margin: 20px;
-  background: #f1f1f1;
   font-family: Arial;
+  background: #f1f1f1;
+}
+
+input {
+  min-width: 300px;
 }
 
 .canvas {
@@ -23,14 +27,15 @@ body {
   display: none;
   padding: 5px;
   font-size: 20px;
-  background: #000e;
+  background: #000a;
   font-weight: bold;
   position: absolute;
-  font-family: monospace;
+  border-radius: 5px;
+  font-family: Monospace;
   border: 1px solid white;
 }
 
 .tooltip__item {
-  margin: 5px;
+  margin: 2px;
   display: block;
 }
