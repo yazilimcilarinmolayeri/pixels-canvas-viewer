@@ -1,0 +1,36 @@
+body {
+  margin: 20px;
+  background: #f1f1f1;
+  font-family: Arial;
+}
+
+.canvas {
+  margin-top: 1.5rem;
+  border-collapse: collapse;
+}
+
+.pixel {
+  width: 3px;
+  height: 3px;
+}
+
+.pixel--selected {
+  outline: 1px solid white;
+}
+
+.tooltip {
+  color: white;
+  display: none;
+  padding: 5px;
+  font-size: 20px;
+  background: #000e;
+  font-weight: bold;
+  position: absolute;
+  font-family: monospace;
+  border: 1px solid white;
+}
+
+.tooltip__item {
+  margin: 5px;
+  display: block;
+}

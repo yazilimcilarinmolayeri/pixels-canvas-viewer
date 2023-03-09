@@ -1,198 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <script>
-/* --- Cookies --- */
+  <head>
+    <title>Pixels Canvas Viewer</title>
+    <link rel="stylesheet" href="style.css"/>
+    <script>
+      /* Cookies */
+      const MAX_AGE = 86400;
 
-const COOKIE_EXPIRE = "Sat, 03 Jul 2021 23:39:16 GMT";
+      function getToken() {
+          const pattern = new RegExp(`^ *token *= *(.*)`);
+          const cookies = document.cookie.split(';');
+          for (const cookie of cookies) {
+              const match = cookie.match(pattern);
+              if (match) return match[1];
+          }
+          return undefined;
+      }
 
-function getToken() {
-    const pattern = new RegExp(`^ *token *= *(.*)`);
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-        const match = cookie.match(pattern);
-        if (match) return match[1];
-    }
-    return undefined;
-}
+      function setToken(token) {
+          document.cookie = `token=${token};max_age=${MAX_AGE};SameSite=Strict`;
+      }
 
-function setToken(token) {
-    document.cookie = `token=${token};expires=${COOKIE_EXPIRE};SameSite=Strict`;
-}
+      /* API Wrapper */
+      const API_URL = "https://pixels.yazilimcilarinmolayeri.com";
 
-/* --- API Wrapper --- */
+      async function getSize() {
+          return fetch(API_URL + "/canvas/size/").then((resp) => resp.json());
+      }
 
-const API_URL = "https://pixels.pythondiscord.com/";
+      function decodePixels(data, size) {
+          const bytes = new Uint8Array(data);
+          const pixels = [];
+          for (let y = 0; y < size.height; y++) {
+              const row = [];
+              for (let x = 0; x < size.width; x++) {
+                  const start = 3 * (y * size.width + x);
+                  const r = bytes[start];
+                  const g = bytes[start + 1];
+                  const b = bytes[start + 2];
+                  const rgb =
+                      "#" + ((r << 16) | (g << 8) | b).toString(16).padStart(6, "0");
+                  row.push({ x: x, y: y, rgb: rgb });
+              }
+              pixels.push(row);
+          }
+          return pixels;
+      }
 
-async function getSize() {
-    return fetch(API_URL + "get_size").then((resp) => resp.json());
-}
+      async function getPixels(token) {
+          return fetch(API_URL + "/canvas/pixels", {
+              headers: { Authorization: "Bearer " + token }
+          })
+              .then((resp) => resp.blob())
+              .then((blob) => blob.arrayBuffer());
+      }
 
-function decodePixels(data, size) {
-    const bytes = new Uint8Array(data);
-    const pixels = [];
-    for (let y = 0; y < size.height; y++) {
-        const row = [];
-        for (let x = 0; x < size.width; x++) {
-            const start = 3 * (y * size.width + x);
-            const r = bytes[start];
-            const g = bytes[start + 1];
-            const b = bytes[start + 2];
-            const rgb =
-                "#" + ((r << 16) | (g << 8) | b).toString(16).padStart(6, "0");
-            row.push({ x: x, y: y, rgb: rgb });
-        }
-        pixels.push(row);
-    }
-    return pixels;
-}
+      async function getCanvas(token) {
+          const data = await getPixels(token);
+          const size = await getSize();
+          return decodePixels(data, size);
+      }
 
-async function getPixels(token) {
-    return fetch(API_URL + "get_pixels", {
-        headers: { Authorization: "Bearer " + token }
-    })
-        .then((resp) => resp.blob())
-        .then((blob) => blob.arrayBuffer());
-}
+      /* Interface */
 
-async function getCanvas(token) {
-    const data = await getPixels(token);
-    const size = await getSize();
-    return decodePixels(data, size);
-}
+      function selectPixel(pixel, data) {
+          Array.from(document.querySelectorAll(".pixel--selected"))
+              .forEach((el) => el.classList.remove("pixel--selected"));
+          pixel.classList.add("pixel--selected");
+          const tooltip = document.getElementById("tooltip");
+          tooltip.style.left = pixel.getBoundingClientRect().right + 'px';
+          tooltip.style.top = (
+              pixel.getBoundingClientRect().bottom +
+              document.documentElement.scrollTop
+          ) + 'px';
+          tooltip.style.display = "block";
+          const position = document.getElementById("tooltip__position");
+          position.innerText = `x:${data.x} y:${data.y}`;
+          const colour = document.getElementById("tooltip__colour");
+          colour.innerText = data.rgb;
+          tooltip.onclick = () => {
+              tooltip.style.display = "none";
+              pixel.classList.remove("pixel--selected");
+          };
+      }
 
-/* --- Interface --- */
+      function drawCanvas(canvasData) {
+          const canvas = document.getElementById("canvas");
+          canvas.textContent = "";
+          for (const rowData of canvasData) {
+              const row = document.createElement("tr");
+              for (const pixelData of rowData) {
+                  const pixel = document.createElement("td");
+                  pixel.classList.add("pixel");
+                  pixel.style.backgroundColor = pixelData.rgb;
+                  pixel.onclick = (e) => {
+                      selectPixel(pixel, pixelData);
+                      e.stopPropagation();
+                  };
+                  row.appendChild(pixel);
+              }
+              canvas.appendChild(row);
+          }
+      }
 
-function selectPixel(pixel, data) {
-    Array.from(document.querySelectorAll(".pixel--selected"))
-        .forEach((el) => el.classList.remove("pixel--selected"));
-    pixel.classList.add("pixel--selected");
-    const tooltip = document.getElementById("tooltip");
-    tooltip.style.left = pixel.getBoundingClientRect().right + 'px';
-    tooltip.style.top = (
-        pixel.getBoundingClientRect().bottom +
-        document.documentElement.scrollTop
-    ) + 'px';
-    tooltip.style.display = "block";
-    const position = document.getElementById("tooltip__position");
-    position.innerText = `${data.x}, ${data.y}`;
-    const colour = document.getElementById("tooltip__colour");
-    colour.innerText = data.rgb;
-    tooltip.onclick = () => {
-        tooltip.style.display = "none";
-        pixel.classList.remove("pixel--selected");
-    };
-}
+      async function main() {
+          const token = document.getElementById("token").value;
+          setToken(token);
+          const canvas = await getCanvas(token);
+          drawCanvas(canvas);
+      }
 
-function drawCanvas(canvasData) {
-    const canvas = document.getElementById("canvas"); // Table
-    canvas.textContent = ""; // Clear it
-    for (const rowData of canvasData) {
-        const row = document.createElement("tr");
-        for (const pixelData of rowData) {
-            const pixel = document.createElement("td");
-            pixel.classList.add("pixel");
-            pixel.style.backgroundColor = pixelData.rgb;
-            pixel.onclick = (e) => {
-                selectPixel(pixel, pixelData);
-                e.stopPropagation();
-            };
-            row.appendChild(pixel);
-        }
-        canvas.appendChild(row);
-    }
-}
-
-async function main() {
-    const token = document.getElementById("token").value;
-    setToken(token);
-    const canvas = await getCanvas(token);
-    drawCanvas(canvas);
-}
-
-window.onload = () => {
-    const tokenInput = document.getElementById("token");
-    const token = getToken();
-    if (token) {
-        tokenInput.value = token;
-    }
-}
-        </script>
-        <style>
-body {
-    background: #484;
-}
-
-.title {
-    font-family: sans-serif;
-}
-
-.input {
-    border: 0;
-    border-bottom: 1px solid #000;
-    background: #0003;
-}
-
-.input:focus-visible {
-    outline: 1px dashed #0008;
-}
-
-.button {
-    border: 0;
-    background: #0003;
-    outline: 1px solid #0008;
-    color: #000;
-    transition: background 100ms linear;
-}
-
-.button:hover {
-    background: #0008;
-}
-
-.canvas {
-    border-collapse: collapse;
-    margin-top: 1.5rem;
-}
-
-.pixel {
-    width: 3px;
-    height: 3px;
-}
-
-.pixel--selected {
-    outline: 1px solid #0f0;
-}
-
-.tooltip {
-    position: absolute;
-    display: none;
-    background: #000e;
-    color: #fff;
-    font-family: monospace;
-    font-weight: bold;
-    padding: 5px;
-    border-radius: 5px;
-    border: 2px solid #fff;
-}
-
-.tooltip__item {
-    display: block;
-    margin: 5px;
-}
-        </style>
-    </head>
-    <body>
-        <h1 class="title">Interactive Canvas Viewer</h1>
-        <input
-            type="password"
-            id="token"
-            class="input"
-            placeholder="Token"/>
-        <button onclick="main()" class="button">Go!</button>
-        <table id="canvas" class="canvas"></table>
-        <div id="tooltip" class="tooltip">
-            <p id="tooltip__position" class="tooltip__item"></p>
-            <p id="tooltip__colour" class="tooltip__item"></p>
-        </div>
-    </body>
+      window.onload = () => {
+          const tokenInput = document.getElementById("token");
+          const token = getToken();
+          if (token) {
+              tokenInput.value = token;
+          }
+      }
+    </script>
+  </head>
+  <body>
+    <h1>Pixels Canvas Viewer</h1>
+    <p>Web based interactive canvas viewer for YMY Pixels</p>
+	<p>
+      Access Token:
+      <input type="password" id="token" class="input"/>
+      <button onclick="main()" class="button">Fuck!</button>
+    </p>
+    <table id="canvas" class="canvas"></table>
+    <div id="tooltip" class="tooltip">
+      <p id="tooltip__colour" class="tooltip__item"></p>
+      <p id="tooltip__position" class="tooltip__item"></p>
+    </div>
+  </body>
 </html>
